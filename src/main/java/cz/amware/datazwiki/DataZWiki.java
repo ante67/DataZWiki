@@ -5,26 +5,44 @@
  */
 package cz.amware.datazwiki;
 
+import cz.amware.model.CocktailIngredientId;
+import cz.amware.model.TCocktail;
+import cz.amware.model.TIngredient;
+import cz.amware.model.TCocktailXIngredient;
+
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.jsoup.nodes.Element;
-import org.jsoup.nodes.Node;
 
 import java.io.*;
 
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Persistence;
+import javax.persistence.EntityManager;
+import javax.persistence.Query;
+import javax.persistence.TypedQuery;
 import org.jsoup.HttpStatusException;
 
 /**
  *
  * @author m.ambros
  */
+
 public class DataZWiki {
+
+    private static final String PERSISTENCE_UNIT_NAME = "DataZWiki";
+    private static EntityManagerFactory factory;
+
     
    public static void main(String[] args) throws IOException {
+       
+       factory = Persistence.createEntityManagerFactory(PERSISTENCE_UNIT_NAME);
+       EntityManager em = factory.createEntityManager();
+       em.getTransaction().begin();
 
    List<String> cocktailsUrlList   = new LinkedList<String>();
        
@@ -68,6 +86,7 @@ public class DataZWiki {
            .userAgent("Mozilla/5.0 (Windows NT 6.1;WOW64;rw23.0) Gecko/20100101 Firefox 23.0")
            .maxBodySize(0).timeout(600000).get();
         String name = document2.getElementsByTag("caption").get(0).text(); //COCKTAIL NAME
+        TCocktail cocktailForCrossTable = insertCocktail(name, cocktailUrl, em);
         Element tableElement = document2.getElementsByClass("infobox").isEmpty() ?
                 null : document2.getElementsByClass("infobox").get(0);
         
@@ -78,10 +97,14 @@ public class DataZWiki {
             String ingredient = liElement.getElementsByTag("a").isEmpty() ?
                     "" :
                     liElement.getElementsByTag("a").get(0).text().toLowerCase();
+            if (!ingredient.equals("")){
+                TIngredient ingredientForCrossTable = insertIngredient(ingredient, em);
+                insertCocktailXIngredient(cocktailForCrossTable,ingredientForCrossTable, em);
+                ingredientForCrossTable = null;
+            }
             System.out.println(ingredient);  
         }
-                
-        
+        cocktailForCrossTable = null;
         //System.out.println(name);  
         }catch(HttpStatusException e){
             e.printStackTrace();
@@ -90,6 +113,9 @@ public class DataZWiki {
         }
     }
        
+    em.getTransaction().commit();
+    em.close();
+    System.out.println("ALL DONE");
        //String attrHref = elementNew.getElementsByTags("a").isEmpty() ?
        //        "" : elementNew.getElementsByTags("a").get(0).attr("href");   
        
@@ -113,4 +139,53 @@ public class DataZWiki {
    //System.out.println(divElement);
    
    }
-}
+   private static TCocktail insertCocktail(String CocktailName, String CocktailUrl,EntityManager em){
+       TCocktail cocktail = new TCocktail();
+       cocktail.setName(CocktailName.trim());
+       cocktail.setUrl(CocktailUrl.trim());
+       em.persist(cocktail);
+       em.flush();
+       System.out.println("Vložen koktejl "+cocktail.getName());
+       
+       return cocktail;
+   }
+   
+   private static TIngredient insertIngredient(String ingredientName, EntityManager em){
+       
+       Query query = em.createQuery("SELECT t FROM Ingredient t");
+       List<TIngredient> ingredientList = query.getResultList();
+       for (Iterator<TIngredient> it = ingredientList.iterator();it.hasNext();){
+           TIngredient ingredientFromTable = it.next();
+           
+           if (ingredientName.trim().toLowerCase().equalsIgnoreCase(ingredientFromTable.getName())){
+               return ingredientFromTable;
+           }
+           
+       }
+       TIngredient newIngredient = new TIngredient();
+       newIngredient.setName(ingredientName.trim());
+       em.persist(newIngredient);
+       em.flush();
+       System.out.println("Vložena ingredience "+newIngredient.getName());
+       
+       return newIngredient;
+       
+   }
+   private static void insertCocktailXIngredient(TCocktail cocktail, TIngredient ingredient, EntityManager em ){
+       TypedQuery<TCocktailXIngredient> query = em.createQuery(
+            "SELECT t FROM TCocktailXIngredient t" +
+            "WHERE t.cocktail.cocktailId = :cocktailId" +
+            "AND t.ingredient.ingredientId = :ingredientId",TCocktailXIngredient.class);
+       query.setParameter("cocktailId", cocktail.getCocktailId());
+       query.setParameter("ingredientId", ingredient.getIngredientId());
+       if(query.getResultList().size() == 0){
+           TCocktailXIngredient cocktailXIngredient = new TCocktailXIngredient();
+           cocktailXIngredient.setCocktail(cocktail);
+           cocktailXIngredient.setIngredient(ingredient);
+           cocktailXIngredient.setId(new CocktailIngredientId(cocktail.getCocktailId(), ingredient.getIngredientId()));
+           em.persist(cocktailXIngredient);
+           em.flush();
+           System.out.println("Vložen koktejl a ingredience "+cocktail.getName()+" / "+ingredient.getName());       
+       }
+    }       
+   }
