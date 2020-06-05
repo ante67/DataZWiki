@@ -1,5 +1,5 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
+ * To change this license header, choose License Headers in 
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
@@ -7,6 +7,7 @@ package cz.amware.model;
 
 import javax.persistence.Column;
 import javax.persistence.Embeddable;
+
 import java.io.Serializable;
 
 
@@ -16,18 +17,49 @@ import java.io.Serializable;
  */
 @Embeddable
 public class CocktailIngredientId implements Serializable {
-    @Column(name="cocktail_id")
-    private long cocktail_id;
+    @Column(name="cocktail_Id")
+    private long cocktailId;
     
-    @Column(name="ingredient_id")
-    private long ingredient_id;
+    @Column(name="ingredient_Id")
+    private long ingredientId;
     
     public CocktailIngredientId(){
         super();
     }
     
-    public CocktailIngredientId(Long cocktail_id, Long ingredient_id){
-        this.cocktail_id=cocktail_id;
-        this.ingredient_id=ingredient_id;        
+    public CocktailIngredientId(Long cocktailId, Long ingredientId){
+        this.cocktailId=cocktailId;
+        this.ingredientId=ingredientId;        
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 43 * hash + (int) (this.cocktailId ^ 
+                (this.cocktailId >>> 32));
+        hash = 43 * hash + (int) (this.ingredientId ^ 
+                (this.ingredientId >>> 32));
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final CocktailIngredientId other = (CocktailIngredientId) obj;
+        if (this.cocktailId != other.cocktailId) {
+            return false;
+        }
+        if (this.ingredientId != other.ingredientId) {
+            return false;
+        }
+        return true;
     }
 }
